@@ -1,0 +1,6 @@
+CANDIDATE: Alice Johnson
+Position Applied: Software Developer
+Experience: 2 years at TechCorp
+Skills: Python, SQL
+Education: BS Computer Science
+References: Available upon request
