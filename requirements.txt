@@ -1,0 +1,40 @@
+# Runtime dependencies for Sentinel-RAG: the RAG pipeline, the Sentinel
+# detection/neutralization layer, and the FastAPI demo UI.
+# Dev-only tooling (tests, linters, dataset downloads) lives in requirements-dev.txt.
+
+# Core
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# LLM & RAG (document loading, chunking, retrieval, LLM client)
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-core>=0.1.10
+langchain-text-splitters>=0.0.1
+ollama>=0.1.6
+chromadb>=0.4.22
+
+# Sentinel Detection Model (DeBERTa-based classifier)
+transformers>=4.36.0
+torch>=2.2.0
+accelerate>=0.25.0
+sentencepiece>=0.1.99
+
+# Document Processing (PDF text extraction for ingestion + web demo upload)
+pypdf>=3.17.0
+PyMuPDF>=1.23.21
+
+# Embeddings
+sentence-transformers>=2.2.2
+
+# Utilities
+tqdm>=4.66.0
+rich>=13.7.0
+pandas>=2.1.0
+numpy>=1.26.0
+
+# Web API (demo UI)
+fastapi>=0.109.0
+uvicorn>=0.25.0
+python-multipart>=0.0.9

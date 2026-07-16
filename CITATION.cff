@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software or its research, please cite it as below."
+title: "Sentinel-RAG: Mitigating Indirect Prompt Injection in Retrieval-Augmented Generation via Semantic Neutralization"
+type: software
+authors:
+  - family-names: "Yepuri"
+    given-names: "Chidhvilasa"
+repository-code: "https://github.com/chidhvilasa/sentinel-rag"
+license: MIT
+version: 1.0.0
+date-released: 2026-07-16
