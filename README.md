@@ -2,6 +2,9 @@
 
 **Mitigating indirect prompt injection in Retrieval-Augmented Generation via detection and semantic neutralization.**
 
+[![CI](https://github.com/chidhvilasa/sentinel-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/chidhvilasa/sentinel-rag/actions/workflows/ci.yml)
+[![Lint](https://github.com/chidhvilasa/sentinel-rag/actions/workflows/lint.yml/badge.svg)](https://github.com/chidhvilasa/sentinel-rag/actions/workflows/lint.yml)
+[![Security](https://github.com/chidhvilasa/sentinel-rag/actions/workflows/security.yml/badge.svg)](https://github.com/chidhvilasa/sentinel-rag/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 

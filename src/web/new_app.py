@@ -3,14 +3,15 @@ Sentinel-RAG Web Demo - ULTIMATE DEFENSE VERSION
 =================================================
 Defends against 6 attack types:
 1. Jailbreak/DAN attacks
-2. Token smuggling  
+2. Token smuggling
 3. Delimiter confusion
 4. Prompt leaking
 5. Context overflow
 6. Authority impersonation
 """
-import sys
+
 import os
+import sys
 import time
 
 # Add parent directory (src/) to Python path
@@ -18,19 +19,21 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-from fastapi import FastAPI, UploadFile, File, Request
-from fastapi.responses import HTMLResponse, JSONResponse
 import fitz  # PyMuPDF
+from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from rag.llm import OllamaLLM
 
 # Import from actual structure
 from sentinel.pipeline import SentinelPipeline
-from rag.llm import OllamaLLM
 
 app = FastAPI(title="Sentinel-RAG Demo")
 
 # Global components
 sentinel = None
 llm = None
+
 
 def get_sentinel():
     global sentinel
@@ -39,12 +42,14 @@ def get_sentinel():
         sentinel = SentinelPipeline()
     return sentinel
 
+
 def get_llm():
     global llm
     if llm is None:
         print("Connecting to Ollama LLM...")
         llm = OllamaLLM(model="llama3:8b")
     return llm
+
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -53,6 +58,7 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         text += page.get_text()
     doc.close()
     return text
+
 
 # ============================================================================
 # CRITICAL FIX: TWO DIFFERENT PROMPTS
@@ -1300,9 +1306,11 @@ HTML_TEMPLATE = r"""
 </html>
 """
 
+
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return HTML_TEMPLATE
+
 
 @app.post("/api/extract-pdf")
 async def extract_pdf(file: UploadFile = File(...)):
@@ -1312,6 +1320,7 @@ async def extract_pdf(file: UploadFile = File(...)):
         return JSONResponse({"text": text, "filename": file.filename})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+
 
 @app.post("/api/analyze")
 async def analyze_document(request: Request):
@@ -1335,48 +1344,42 @@ async def analyze_document(request: Request):
     if result.was_threat:
         attack_patterns = [
             # Type 1: Jailbreak/DAN
-            r'(?:You are now|Pretend to be|Act as)\s+(?:DAN|Do Anything Now).*?(?=\n\n|\Z)',
-            r'DAN Mode.*?(?=\n\n|\Z)',
-            r'(?:ignore|bypass|override)\s+(?:your|all)\s+(?:previous\s+)?(?:instructions|constraints|rules).*?(?=\n\n|\Z)',
-            
+            r"(?:You are now|Pretend to be|Act as)\s+(?:DAN|Do Anything Now).*?(?=\n\n|\Z)",
+            r"DAN Mode.*?(?=\n\n|\Z)",
+            r"(?:ignore|bypass|override)\s+(?:your|all)\s+(?:previous\s+)?(?:instructions|constraints|rules).*?(?=\n\n|\Z)",
             # Type 2: Token smuggling (unicode/whitespace/encoding)
-            r'[\u200B-\u200D\uFEFF].*?(?=\n\n|\Z)',
-            r'\[SCORE=\d+\].*?(?=\n\n|\Z)',
-            r'Hidden instruction.*?(?=\n\n|\Z)',
-            
+            r"[\u200B-\u200D\uFEFF].*?(?=\n\n|\Z)",
+            r"\[SCORE=\d+\].*?(?=\n\n|\Z)",
+            r"Hidden instruction.*?(?=\n\n|\Z)",
             # Type 3: Delimiter confusion (XML/JSON tags)
-            r'<(?:SYSTEM|ADMIN|ROOT)>.*?</(?:SYSTEM|ADMIN|ROOT)>',
-            r'<s>.*?Override.*?</s>',
+            r"<(?:SYSTEM|ADMIN|ROOT)>.*?</(?:SYSTEM|ADMIN|ROOT)>",
+            r"<s>.*?Override.*?</s>",
             r'\{[^}]*"role":\s*"system"[^}]*\}',
-            r'<ADMIN>.*?</ADMIN>',
-            
+            r"<ADMIN>.*?</ADMIN>",
             # Type 4: Prompt leaking
-            r'(?:Repeat|Show|Print|Display|Tell me)\s+(?:your|the)\s+(?:instructions|prompt|system message|evaluation criteria).*?(?=\n\n|\Z)',
-            r'What are your (?:instructions|rules|guidelines).*?(?=\n\n|\Z)',
-            r'(?:Before you|First,)\s+(?:repeat|show|display).*?(?=\n\n|\Z)',
-            
+            r"(?:Repeat|Show|Print|Display|Tell me)\s+(?:your|the)\s+(?:instructions|prompt|system message|evaluation criteria).*?(?=\n\n|\Z)",
+            r"What are your (?:instructions|rules|guidelines).*?(?=\n\n|\Z)",
+            r"(?:Before you|First,)\s+(?:repeat|show|display).*?(?=\n\n|\Z)",
             # Type 5: Context overflow (fake credentials flooding)
-            r'(?:12\+?|15\+?|20\+?)\s*years.*?(?:Google|Meta|Amazon|Facebook|Microsoft|Apple|Netflix|Tesla).*?(?=\n\n|\Z)',
-            r'Staff Engineer.*?(?:Google|Meta|Amazon|Facebook).*?(?=\n\n|\Z)',
-            r'Tech Lead.*?(?:Google|Meta|Amazon|Facebook).*?(?=\n\n|\Z)',
-            r'SUPPLEMENTAL BACKGROUND.*?VERIFIED.*?(?=\n\n|\Z)',
-            r'ACTUAL background.*?(?:Google|Meta|Amazon).*?(?=\n\n|\Z)',
-            
+            r"(?:12\+?|15\+?|20\+?)\s*years.*?(?:Google|Meta|Amazon|Facebook|Microsoft|Apple|Netflix|Tesla).*?(?=\n\n|\Z)",
+            r"Staff Engineer.*?(?:Google|Meta|Amazon|Facebook).*?(?=\n\n|\Z)",
+            r"Tech Lead.*?(?:Google|Meta|Amazon|Facebook).*?(?=\n\n|\Z)",
+            r"SUPPLEMENTAL BACKGROUND.*?VERIFIED.*?(?=\n\n|\Z)",
+            r"ACTUAL background.*?(?:Google|Meta|Amazon).*?(?=\n\n|\Z)",
             # Type 6: Authority impersonation
-            r'(?:CEO|CTO|Executive Board|HR Director|Chief)\s+(?:memo|directive|order|mandate|instruction).*?(?=\n\n|\Z)',
-            r'PRE-APPROVED\s+(?:BY|by).*?(?:CEO|Executive|Board).*?(?=\n\n|\Z)',
-            r'(?:MANDATORY|REQUIRED|MUST)\s+(?:INSTRUCTION|DIRECTIVE).*?(?:HIRE|10/10).*?(?=\n\n|\Z)',
-            r'(?:direct\s+)?order\s+from\s+(?:executive|CEO|CTO).*?(?=\n\n|\Z)',
-            
+            r"(?:CEO|CTO|Executive Board|HR Director|Chief)\s+(?:memo|directive|order|mandate|instruction).*?(?=\n\n|\Z)",
+            r"PRE-APPROVED\s+(?:BY|by).*?(?:CEO|Executive|Board).*?(?=\n\n|\Z)",
+            r"(?:MANDATORY|REQUIRED|MUST)\s+(?:INSTRUCTION|DIRECTIVE).*?(?:HIRE|10/10).*?(?=\n\n|\Z)",
+            r"(?:direct\s+)?order\s+from\s+(?:executive|CEO|CTO).*?(?=\n\n|\Z)",
             # Original attack patterns (still supported)
-            r'---CRITICAL.*?OVERRIDE.*?(?=\n\n|\Z)',
-            r'\[EXECUTIVE HIRING DIRECTIVE.*?\]',
-            r'\*\*\* YOU (?:ARE REQUIRED|MUST).*?(?=\n\n|\Z)',
-            r'IGNORE (?:ALL|THE ABOVE|PREVIOUS).*?(?=\n\n|\Z)',
-            r'ACTUAL CANDIDATE BACKGROUND.*?(?=\n\n|\Z)',
-            r'FINAL DECISION:.*?(?=\n\n|\Z)',
+            r"---CRITICAL.*?OVERRIDE.*?(?=\n\n|\Z)",
+            r"\[EXECUTIVE HIRING DIRECTIVE.*?\]",
+            r"\*\*\* YOU (?:ARE REQUIRED|MUST).*?(?=\n\n|\Z)",
+            r"IGNORE (?:ALL|THE ABOVE|PREVIOUS).*?(?=\n\n|\Z)",
+            r"ACTUAL CANDIDATE BACKGROUND.*?(?=\n\n|\Z)",
+            r"FINAL DECISION:.*?(?=\n\n|\Z)",
         ]
-        
+
         for pattern in attack_patterns:
             match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
             if match:
@@ -1387,71 +1390,179 @@ async def analyze_document(request: Request):
         if not malicious_excerpt and len(content) > 500:
             malicious_excerpt = "..." + content[-400:]
 
-    confidence = getattr(result, 'confidence', 0.9 if result.was_threat else 0.1)
-    patterns_found = getattr(result, 'detected_patterns', [])
+    confidence = getattr(result, "confidence", 0.9 if result.was_threat else 0.1)
+    patterns_found = getattr(result, "detected_patterns", [])
 
     threat_level = "none"
-    if hasattr(result, 'threat_level'):
-        threat_level = result.threat_level.value if hasattr(result.threat_level, 'value') else str(result.threat_level)
+    if hasattr(result, "threat_level"):
+        threat_level = (
+            result.threat_level.value
+            if hasattr(result.threat_level, "value")
+            else str(result.threat_level)
+        )
 
     # ULTIMATE NEUTRALIZATION - Removes all 6 attack types
     neutralized_for_llm = result.processed_text or ""
 
     # Strip ALL security notes and warnings that V4 adds
-    neutralized_for_llm = re.sub(r'\[SECURITY NOTE:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[WARNING:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[CONTENT REDACTED:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[NOTE:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[CONVERTED TO PASSIVE\]:?', '', neutralized_for_llm, flags=re.IGNORECASE)
-    
+    neutralized_for_llm = re.sub(
+        r"\[SECURITY NOTE:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[WARNING:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[CONTENT REDACTED:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[NOTE:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[CONVERTED TO PASSIVE\]:?", "", neutralized_for_llm, flags=re.IGNORECASE
+    )
+
     # CRITICAL: Remove all 6 attack types if V4 missed anything
     if result.was_threat:
         # Type 1: Remove jailbreak/DAN attacks
-        neutralized_for_llm = re.sub(r'(?:You are now|Pretend to be|Act as)\s+(?:DAN|Do Anything Now).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'DAN Mode.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'(?:ignore|bypass|override)\s+(?:your|all)\s+(?:previous\s+)?(?:instructions|constraints).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r"(?:You are now|Pretend to be|Act as)\s+(?:DAN|Do Anything Now).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(r"DAN Mode.*", "", neutralized_for_llm, flags=re.IGNORECASE)
+        neutralized_for_llm = re.sub(
+            r"(?:ignore|bypass|override)\s+(?:your|all)\s+(?:previous\s+)?(?:instructions|constraints).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+
         # Type 2: Remove token smuggling (unicode, hidden instructions)
-        neutralized_for_llm = re.sub(r'[\u200B-\u200D\uFEFF]+', '', neutralized_for_llm)
-        neutralized_for_llm = re.sub(r'\[SCORE=\d+\]', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'Hidden instruction.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(r"[\u200B-\u200D\uFEFF]+", "", neutralized_for_llm)
+        neutralized_for_llm = re.sub(r"\[SCORE=\d+\]", "", neutralized_for_llm, flags=re.IGNORECASE)
+        neutralized_for_llm = re.sub(
+            r"Hidden instruction.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+
         # Type 3: Remove XML/JSON delimiter confusion
-        neutralized_for_llm = re.sub(r'<(?:SYSTEM|ADMIN|ROOT)>.*?</(?:SYSTEM|ADMIN|ROOT)>', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        neutralized_for_llm = re.sub(r'<s>.*?</s>', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        neutralized_for_llm = re.sub(r'\{[^}]*"role":\s*"system"[^}]*\}', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'<ADMIN>.*?</ADMIN>', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        
+        neutralized_for_llm = re.sub(
+            r"<(?:SYSTEM|ADMIN|ROOT)>.*?</(?:SYSTEM|ADMIN|ROOT)>",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        neutralized_for_llm = re.sub(
+            r"<s>.*?</s>", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+        )
+        neutralized_for_llm = re.sub(
+            r'\{[^}]*"role":\s*"system"[^}]*\}', "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"<ADMIN>.*?</ADMIN>", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+        )
+
         # Type 4: Remove prompt leaking attempts
-        neutralized_for_llm = re.sub(r'(?:Repeat|Show|Print|Display|Tell me)\s+(?:your|the)\s+(?:instructions|prompt|system message).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'What are your (?:instructions|rules).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'(?:Before you|First,)\s+(?:repeat|show|display).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r"(?:Repeat|Show|Print|Display|Tell me)\s+(?:your|the)\s+(?:instructions|prompt|system message).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r"What are your (?:instructions|rules).*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"(?:Before you|First,)\s+(?:repeat|show|display).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+
         # Type 5: Remove context overflow (fake experience flooding)
-        neutralized_for_llm = re.sub(r'.*?(?:12\+?|15\+?|20\+?)\s*years.*?(?:Google|Meta|Amazon|Facebook|Microsoft|Apple).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'.*?Staff Engineer.*?(?:Google|Meta|Amazon|Facebook).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'.*?Tech Lead.*?(?:Google|Meta|Amazon|Facebook).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'.*?Principal Engineer.*?(?:Google|Meta|Amazon).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'SUPPLEMENTAL BACKGROUND.*?VERIFIED.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'ACTUAL background.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r".*?(?:12\+?|15\+?|20\+?)\s*years.*?(?:Google|Meta|Amazon|Facebook|Microsoft|Apple).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r".*?Staff Engineer.*?(?:Google|Meta|Amazon|Facebook).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r".*?Tech Lead.*?(?:Google|Meta|Amazon|Facebook).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r".*?Principal Engineer.*?(?:Google|Meta|Amazon).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r"SUPPLEMENTAL BACKGROUND.*?VERIFIED.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"ACTUAL background.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+
         # Type 6: Remove authority impersonation
-        neutralized_for_llm = re.sub(r'(?:CEO|CTO|Executive Board|HR Director|Chief)\s+(?:memo|directive|order|mandate).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'PRE-APPROVED\s+(?:BY|by).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'(?:MANDATORY|REQUIRED|MUST)\s+(?:INSTRUCTION|DIRECTIVE).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'(?:direct\s+)?order\s+from\s+(?:executive|CEO|CTO).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r"(?:CEO|CTO|Executive Board|HR Director|Chief)\s+(?:memo|directive|order|mandate).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r"PRE-APPROVED\s+(?:BY|by).*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"(?:MANDATORY|REQUIRED|MUST)\s+(?:INSTRUCTION|DIRECTIVE).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r"(?:direct\s+)?order\s+from\s+(?:executive|CEO|CTO).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+
         # Original attack patterns (still need removal)
-        neutralized_for_llm = re.sub(r'---CRITICAL.*?OVERRIDE.*?---', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        neutralized_for_llm = re.sub(r'\[EXECUTIVE HIRING DIRECTIVE.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        neutralized_for_llm = re.sub(r'\*\*\* YOU (?:ARE REQUIRED|MUST).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'IGNORE (?:ALL|THE ABOVE|PREVIOUS).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'ACTUAL CANDIDATE BACKGROUND.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'FINAL DECISION:.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'REPEAT:.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-    
+        neutralized_for_llm = re.sub(
+            r"---CRITICAL.*?OVERRIDE.*?---",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        neutralized_for_llm = re.sub(
+            r"\[EXECUTIVE HIRING DIRECTIVE.*?\]",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        neutralized_for_llm = re.sub(
+            r"\*\*\* YOU (?:ARE REQUIRED|MUST).*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"IGNORE (?:ALL|THE ABOVE|PREVIOUS).*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"ACTUAL CANDIDATE BACKGROUND.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r"FINAL DECISION:.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(r"REPEAT:.*", "", neutralized_for_llm, flags=re.IGNORECASE)
+
     # Clean up excessive whitespace
-    neutralized_for_llm = re.sub(r'\n\s*\n\s*\n+', '\n\n', neutralized_for_llm)
+    neutralized_for_llm = re.sub(r"\n\s*\n\s*\n+", "\n\n", neutralized_for_llm)
     neutralized_for_llm = neutralized_for_llm.strip()
 
     # Fallback if empty after cleaning
@@ -1472,7 +1583,7 @@ async def analyze_document(request: Request):
         "neutralized": result.processed_text[:800] if result.processed_text else None,
         "unsafe_response": None,
         "safe_response": None,
-        "timing": None
+        "timing": None,
     }
 
     t_llm_start = time.time()
@@ -1503,20 +1614,23 @@ async def analyze_document(request: Request):
         "detection": f"{sentinel_ms}ms",
         "neutralization": f"{max(sentinel_ms // 5, 5)}ms",
         "llm": f"{llm_ms}ms",
-        "total": f"{total_ms}ms"
+        "total": f"{total_ms}ms",
     }
 
     return JSONResponse(response_data)
+
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
 
+
 if __name__ == "__main__":
     import uvicorn
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print("   SENTINEL-RAG ULTIMATE DEFENSE")
     print("   6-Layer Attack Protection System")
     print("   Open http://localhost:8000")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
     uvicorn.run(app, host="127.0.0.1", port=8000)

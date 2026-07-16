@@ -8,23 +8,14 @@ This module provides the core RAG functionality:
 - LLM interface via Ollama
 """
 
-from .pipeline import (
-    DocumentLoader,
-    VectorStore,
-    RAGPipeline,
-    RetrievalResult
-)
-
-from .llm import (
-    OllamaLLM,
-    GenerationResult
-)
+from .llm import GenerationResult, OllamaLLM
+from .pipeline import DocumentLoader, RAGPipeline, RetrievalResult, VectorStore
 
 __all__ = [
     "DocumentLoader",
-    "VectorStore", 
+    "VectorStore",
     "RAGPipeline",
     "RetrievalResult",
     "OllamaLLM",
-    "GenerationResult"
+    "GenerationResult",
 ]

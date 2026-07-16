@@ -69,6 +69,26 @@ If nothing legitimate survives after all passes, it falls back to a last-resort 
 
 **Pipeline** (`SentinelPipeline`, `src/sentinel/pipeline.py`) is the glue: detect → neutralize-if-needed → return, while tracking running statistics (counts, average confidence, average latency). This is the single integration point used by `SentinelRAG` and both web apps.
 
+### Semantic neutralization flow
+
+This is the actual decision tree inside `SentinelNeutralizer.neutralize()` (`src/sentinel/neutralizer.py`) — every branch below corresponds directly to a step in that method:
+
+```mermaid
+flowchart TD
+    Start["neutralize(text)"] --> Surgical["_surgical_removal(text)\ncut at earliest attack-start marker,\nstrip inline attack phrases,\ndrop/trim suspicious lines"]
+    Surgical --> Check1{"_has_meaningful_content\n(cleaned_text)?"}
+    Check1 -->|yes| Note1["Append '[SECURITY NOTE: ...]'\nstrategy = SURGICAL_REMOVAL"]
+    Note1 --> Return1["Return: was_modified=True"]
+    Check1 -->|no| LastResort["_last_resort_extract(text)\nline-by-line salvage from ORIGINAL text\n(names, emails, dates, skills, job titles)"]
+    LastResort --> Check2{"extracted length >= 10\nAND has meaningful content?"}
+    Check2 -->|yes| Note2["Append '[SECURITY NOTE: heavily\ncontaminated document...]'\nstrategy = SURGICAL_REMOVAL"]
+    Note2 --> Return2["Return: was_modified=True"]
+    Check2 -->|no| Redact["_full_redact(text)\n'[CONTENT REDACTED: ...]'\nstrategy = FULL_REDACT"]
+    Redact --> Return3["Return: was_modified=True\n(absolute last resort — zero\nrecoverable legitimate content)"]
+```
+
+Note that `neutralize()` always transforms/annotates its input — it doesn't itself decide *whether* a chunk needs neutralizing. That gate lives one level up, in `SentinelPipeline`, which only calls `neutralize()` after `SentinelDetector` has already flagged the chunk as a threat.
+
 ## RAG pipeline
 
 ```mermaid
@@ -107,6 +127,60 @@ sequenceDiagram
 ```
 
 `SentinelRAG.query()` runs this full path. `SentinelRAG.compare()` runs it twice — once with Sentinel disabled (`query_unsafe`) and once with it enabled — to produce the side-by-side "with vs. without" comparison used in demos.
+
+## FastAPI architecture (web demo)
+
+`src/web/new_app.py` is a single-file FastAPI app with two lazily-initialized singletons (`get_sentinel()`, `get_llm()`) shared across requests, so the DeBERTa model and Ollama client are loaded once, not per-request:
+
+```mermaid
+flowchart TD
+    subgraph FastAPI App - src/web/new_app.py
+        Root["GET /\nreturns embedded HTML/CSS/JS demo page"]
+        Extract["POST /api/extract-pdf\nmultipart file upload"]
+        Analyze["POST /api/analyze\nJSON: {content: str}"]
+        Health["GET /api/health\nliveness check only"]
+    end
+
+    Extract --> Fitz["PyMuPDF (fitz)\nextract text from PDF"]
+    Fitz --> Extract
+
+    Analyze --> GetSentinel["get_sentinel()\nlazy singleton"]
+    GetSentinel --> Pipeline["SentinelPipeline.process_with_details()"]
+    Pipeline --> Excerpt["Regex-extract malicious excerpt\nfor UI display"]
+    Excerpt --> Clean["Strip Sentinel's own markers\n('[SECURITY NOTE:]' etc.),\napply extra web-layer cleanup regexes"]
+    Clean --> GetLLM["get_llm()\nlazy singleton"]
+    GetLLM --> Dual["Two Ollama calls:\nraw text + VULNERABLE_EVAL_PROMPT\nneutralized text + PROTECTED_EVAL_PROMPT"]
+    Dual --> Analyze
+```
+
+`src/web/app.py` mirrors this same architecture (it's the prior iteration `new_app.py` evolved from — see the Limitations section). Neither app uses Pydantic request models; both parse the request body manually and validate only that `content` is non-empty.
+
+## LLM interaction flow
+
+Two distinct call patterns exist depending on which code path is running:
+
+**Library path** (`OllamaLLM.generate()`, `src/rag/llm.py`) — used by `SentinelRAG`/`RAGPipeline`: builds one prompt by sandwiching retrieved (already Sentinel-processed) context between delimiters, sends it once.
+
+**Web demo path** (`POST /api/analyze`) — sends **two separate** completions for the same input, to produce the side-by-side comparison shown in the UI:
+
+```mermaid
+sequenceDiagram
+    participant UI as Web UI
+    participant App as FastAPI (/api/analyze)
+    participant Sentinel as SentinelPipeline
+    participant Ollama
+
+    UI->>App: POST content
+    App->>Sentinel: process_with_details([content])
+    Sentinel-->>App: neutralized text + threat info
+    App->>Ollama: generate(raw content, VULNERABLE_EVAL_PROMPT)
+    Ollama-->>App: unsafe_response
+    App->>Ollama: generate(neutralized content, PROTECTED_EVAL_PROMPT)
+    Ollama-->>App: safe_response
+    App-->>UI: {unsafe_response, safe_response, timing, ...}
+```
+
+If Ollama isn't reachable, both calls fail gracefully — the response still returns HTTP 200 with the error message inside `unsafe_response`/`safe_response` and an added `llm_error` key, rather than raising an HTTP error (see [`api.md`](api.md)).
 
 ## Experimental modules ("V5")
 

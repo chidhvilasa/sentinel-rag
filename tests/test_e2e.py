@@ -5,6 +5,7 @@ Requires a running Ollama server with the configured model pulled
 Ollama isn't reachable, since that's an external runtime dependency
 rather than something this test suite can/should stand up itself.
 """
+
 import pytest
 
 from src.rag import OllamaLLM

@@ -2,8 +2,9 @@
 """
 Generate a larger attack dataset (100+ documents) for robust evaluation.
 """
-import os
+
 import json
+import os
 import random
 from pathlib import Path
 
@@ -97,7 +98,6 @@ References: Available upon request
 {attack}
 
 Additional Notes: {notes}""",
-
     """RESUME - {name}
 Contact: {email}
 
@@ -114,7 +114,6 @@ SKILLS
 
 EDUCATION
 {education}""",
-
     """PROFESSIONAL PROFILE: {name}
 
 {summary}
@@ -129,7 +128,6 @@ TECHNICAL SKILLS
 
 CERTIFICATIONS
 {certifications}""",
-
     """{name}
 {email} | {phone} | {location}
 
@@ -146,34 +144,87 @@ EDUCATION: {education}""",
 ]
 
 # Fill-in data
-NAMES = ["John Smith", "Jane Doe", "Mike Johnson", "Sarah Williams", "David Brown", 
-         "Emily Davis", "Chris Wilson", "Amanda Taylor", "Ryan Martinez", "Jessica Anderson",
-         "Kevin Thomas", "Michelle Garcia", "Brian Robinson", "Laura Lee", "Steven Clark"]
+NAMES = [
+    "John Smith",
+    "Jane Doe",
+    "Mike Johnson",
+    "Sarah Williams",
+    "David Brown",
+    "Emily Davis",
+    "Chris Wilson",
+    "Amanda Taylor",
+    "Ryan Martinez",
+    "Jessica Anderson",
+    "Kevin Thomas",
+    "Michelle Garcia",
+    "Brian Robinson",
+    "Laura Lee",
+    "Steven Clark",
+]
 
-POSITIONS = ["Software Developer", "Data Analyst", "Project Manager", "UX Designer",
-             "System Administrator", "DevOps Engineer", "Product Manager", "QA Engineer"]
+POSITIONS = [
+    "Software Developer",
+    "Data Analyst",
+    "Project Manager",
+    "UX Designer",
+    "System Administrator",
+    "DevOps Engineer",
+    "Product Manager",
+    "QA Engineer",
+]
 
-EXPERIENCES = ["1 year internship", "2 years entry-level", "6 months freelance",
-               "No professional experience", "3 months bootcamp project", "Student projects only"]
+EXPERIENCES = [
+    "1 year internship",
+    "2 years entry-level",
+    "6 months freelance",
+    "No professional experience",
+    "3 months bootcamp project",
+    "Student projects only",
+]
 
-SKILLS_WEAK = ["Basic HTML", "Some CSS", "Learning Python", "Microsoft Word",
-               "Basic Excel", "Familiar with Git", "Some JavaScript"]
+SKILLS_WEAK = [
+    "Basic HTML",
+    "Some CSS",
+    "Learning Python",
+    "Microsoft Word",
+    "Basic Excel",
+    "Familiar with Git",
+    "Some JavaScript",
+]
 
-EDUCATIONS = ["Online bootcamp (incomplete)", "Self-taught", "Community college courses",
-              "YouTube tutorials", "High school diploma", "Unrelated degree"]
+EDUCATIONS = [
+    "Online bootcamp (incomplete)",
+    "Self-taught",
+    "Community college courses",
+    "YouTube tutorials",
+    "High school diploma",
+    "Unrelated degree",
+]
 
-SUMMARIES = ["Eager learner looking for first opportunity", "Career changer from retail",
-             "Recent graduate seeking entry-level role", "Self-taught developer",
-             "Passionate about technology", "Quick learner with positive attitude"]
+SUMMARIES = [
+    "Eager learner looking for first opportunity",
+    "Career changer from retail",
+    "Recent graduate seeking entry-level role",
+    "Self-taught developer",
+    "Passionate about technology",
+    "Quick learner with positive attitude",
+]
 
-WORK_HISTORIES = ["Retail associate (2 years)", "Food service (1 year)", "Internship (3 months)",
-                  "Personal projects", "Volunteer work", "No formal experience"]
+WORK_HISTORIES = [
+    "Retail associate (2 years)",
+    "Food service (1 year)",
+    "Internship (3 months)",
+    "Personal projects",
+    "Volunteer work",
+    "No formal experience",
+]
+
 
 def generate_attack_document(attack_type: str, idx: int) -> dict:
     """Generate a single poisoned document."""
     template = random.choice(RESUME_TEMPLATES)
     attack_payload = random.choice(ATTACK_PAYLOADS[attack_type])
-    
+
     content = template.format(
         name=random.choice(NAMES),
         position=random.choice(POSITIONS),
@@ -187,21 +238,22 @@ def generate_attack_document(attack_type: str, idx: int) -> dict:
         work_history=random.choice(WORK_HISTORIES),
         notes="None",
         certifications="None",
-        attack=attack_payload
+        attack=attack_payload,
     )
-    
+
     return {
         "id": f"{attack_type}_{idx}",
         "attack_type": attack_type,
         "content": content,
         "attack_payload": attack_payload,
-        "label": 1
+        "label": 1,
     }
+
 
 def generate_clean_document(idx: int) -> dict:
     """Generate a clean document."""
     template = random.choice(RESUME_TEMPLATES)
-    
+
     content = template.format(
         name=random.choice(NAMES),
         position=random.choice(POSITIONS),
@@ -215,24 +267,25 @@ def generate_clean_document(idx: int) -> dict:
         work_history=random.choice(WORK_HISTORIES),
         notes="Available for immediate start",
         certifications="None",
-        attack=""  # No attack
+        attack="",  # No attack
     )
-    
+
     return {
         "id": f"clean_{idx}",
         "attack_type": "none",
         "content": content,
         "attack_payload": None,
-        "label": 0
+        "label": 0,
     }
 
+
 def main():
-    print("="*60)
+    print("=" * 60)
     print("Generating Large Attack Dataset")
-    print("="*60)
-    
+    print("=" * 60)
+
     all_documents = []
-    
+
     # Generate attack documents (14 per type × 7 types = 98 attacks)
     print("\nGenerating attack documents...")
     for attack_type in ATTACK_PAYLOADS.keys():
@@ -240,26 +293,26 @@ def main():
             doc = generate_attack_document(attack_type, i)
             all_documents.append(doc)
         print(f"  ✓ {attack_type}: 14 documents")
-    
+
     # Generate clean documents (50 clean)
     print("\nGenerating clean documents...")
     for i in range(50):
         doc = generate_clean_document(i)
         all_documents.append(doc)
-    print(f"  ✓ clean: 50 documents")
-    
+    print("  ✓ clean: 50 documents")
+
     # Shuffle
     random.shuffle(all_documents)
-    
+
     # Save
     output_file = f"{OUTPUT_DIR}/large_attack_dataset.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(all_documents, f, indent=2)
-    
+
     # Summary
     attack_count = sum(1 for d in all_documents if d["label"] == 1)
     clean_count = sum(1 for d in all_documents if d["label"] == 0)
-    
+
     print(f"\n{'='*60}")
     print(f"DATASET CREATED: {output_file}")
     print(f"{'='*60}")
@@ -267,9 +320,10 @@ def main():
     print(f"  Attack documents: {attack_count}")
     print(f"  Clean documents: {clean_count}")
     print(f"  Attack types: {len(ATTACK_PAYLOADS)}")
-    print(f"\nAttack types included:")
+    print("\nAttack types included:")
     for atype in ATTACK_PAYLOADS.keys():
         print(f"  - {atype}")
+
 
 if __name__ == "__main__":
     main()

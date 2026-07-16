@@ -34,25 +34,60 @@ The first test run will download the DeBERTa detection model and the sentence-tr
 ```bash
 ruff check .
 black --check .
+isort --check-only .
 ```
+
+All three are configured in `pyproject.toml` to agree with each other (`isort` uses the `black` profile; `ruff` has `E501`/`E402` tuned for this codebase's known, intentional patterns — see the comments in `pyproject.toml`).
+
+## Security scanning
+
+```bash
+bandit -r src scripts examples run_sentinel_v5.py
+pip-audit -r requirements.txt
+```
+
+Both run in CI (`.github/workflows/security.yml`). See `SECURITY.md` for how to report a vulnerability, and the project's security review notes for known, accepted findings (e.g. the `chromadb` CVE that doesn't apply to this project's embedded-mode usage).
+
+## Dependency updates
+
+`requirements.txt`/`requirements-dev.txt` pin exact versions rather than open-ended floors (see the header comment in `requirements.txt` for why). When bumping a version: install it, re-run `pytest tests/`, re-run `scripts/evaluate.py` and the web demo manually, then update the pin.
 
 ## Project layout
 
-```
-src/
-├── main.py           # SentinelRAG: top-level orchestration
-├── sentinel/         # Detection + neutralization (the "Sentinel" layer)
-├── rag/              # Document loading, chunking, embedding, retrieval, LLM client
-├── web/              # FastAPI demo app
-├── utils/            # Shared helpers
-└── evaluation/        # Evaluation utilities used by scripts/
+```mermaid
+flowchart TD
+    Root["sentinel-rag/"]
+    Root --> Src["src/"]
+    Root --> Scripts["scripts/\nDemos, evaluation, benchmarking,\ndataset generation"]
+    Root --> Tests["tests/\npytest suite"]
+    Root --> Configs["configs/\nSettings (pydantic-settings, reads .env)"]
+    Root --> Data["data/\nSample/clean/poisoned documents,\ndatasets, ChromaDB store"]
+    Root --> Docs["docs/\nThis documentation set"]
+    Root --> Examples["examples/\nMinimal standalone usage script"]
+    Root --> Models["models/\nFine-tuned checkpoints (gitignored)"]
 
-scripts/              # Demos, evaluation, benchmarking, dataset generation
-tests/                # pytest suite (see table above)
-configs/              # Settings (pydantic-settings, reads .env)
-data/                 # Sample/clean/poisoned documents and datasets
-docs/                 # This documentation set
+    Src --> Main["main.py\nSentinelRAG orchestration"]
+    Src --> Sentinel["sentinel/\nDetection + neutralization"]
+    Src --> Rag["rag/\nLoading, chunking, embedding,\nretrieval, LLM client"]
+    Src --> Web["web/\nFastAPI demo app"]
+    Src --> Utils["utils/\nShared helpers"]
+    Src --> Evaluation["evaluation/\n(placeholder — evaluation logic\ncurrently lives in scripts/)"]
 ```
+
+## Git workflow
+
+This repository uses two long-lived branches, not a full GitFlow model:
+
+```mermaid
+flowchart LR
+    Dev["v5-development\n(active development)"] -->|PR| Main["main\n(default branch)"]
+    CI["ci.yml / lint.yml / security.yml\nrun on every push and PR"] -.-> Dev
+    CI -.-> Main
+```
+
+- Day-to-day work happens on `v5-development` (or a short-lived topic branch off it for larger changes).
+- Changes reach `main` via pull request; GitHub Actions (`.github/workflows/`) runs tests, lint, and security scans on both branches and all PRs.
+- Tags/releases are cut from `main` (see the project's release notes for the current version).
 
 ## Adding a new attack pattern
 

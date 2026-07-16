@@ -1,40 +1,47 @@
 # Runtime dependencies for Sentinel-RAG: the RAG pipeline, the Sentinel
 # detection/neutralization layer, and the FastAPI demo UI.
 # Dev-only tooling (tests, linters, dataset downloads) lives in requirements-dev.txt.
+#
+# Versions are pinned exactly to a combination verified working end-to-end
+# (full pytest suite, evaluation scripts, and the live web demo) rather than
+# left as open-ended lower bounds, since e.g. `langchain>=0.1.0` would let a
+# fresh install resolve all the way up to a different major version series.
+# Bump deliberately, re-run the test suite and scripts/evaluate*.py, and
+# update docs/benchmarks.md if metrics move.
 
 # Core
-python-dotenv>=1.0.0
-pydantic>=2.5.0
-pydantic-settings>=2.1.0
+python-dotenv==1.2.2
+pydantic==2.12.5
+pydantic-settings==2.14.2
 
 # LLM & RAG (document loading, chunking, retrieval, LLM client)
-langchain>=0.1.0
-langchain-community>=0.0.10
-langchain-core>=0.1.10
-langchain-text-splitters>=0.0.1
-ollama>=0.1.6
-chromadb>=0.4.22
+langchain==1.2.6
+langchain-community==0.4.1
+langchain-core==1.2.7
+langchain-text-splitters==1.1.0
+ollama==0.6.1
+chromadb==1.4.1
 
 # Sentinel Detection Model (DeBERTa-based classifier)
-transformers>=4.36.0
-torch>=2.2.0
-accelerate>=0.25.0
-sentencepiece>=0.1.99
+transformers==4.57.6
+torch==2.9.1
+accelerate==1.12.0
+sentencepiece==0.2.1
 
 # Document Processing (PDF text extraction for ingestion + web demo upload)
-pypdf>=3.17.0
-PyMuPDF>=1.23.21
+pypdf==6.14.2
+PyMuPDF==1.26.7
 
 # Embeddings
-sentence-transformers>=2.2.2
+sentence-transformers==5.2.0
 
 # Utilities
-tqdm>=4.66.0
-rich>=13.7.0
-pandas>=2.1.0
-numpy>=1.26.0
+tqdm==4.67.1
+rich==14.2.0
+pandas==2.3.3
+numpy==2.4.1
 
 # Web API (demo UI)
-fastapi>=0.109.0
-uvicorn>=0.25.0
-python-multipart>=0.0.9
+fastapi==0.128.0
+uvicorn==0.40.0
+python-multipart==0.0.32

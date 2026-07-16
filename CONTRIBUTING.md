@@ -18,7 +18,9 @@ Thanks for your interest in contributing. This is an active research project —
   pytest tests/
   ruff check .
   black --check .
+  isort --check-only .
   ```
+  CI (`.github/workflows/`) runs these same checks, plus `bandit`/`pip-audit`/secret scanning, on every PR.
 - If your change affects detection accuracy or latency, re-run the relevant script in `scripts/` (see [`docs/benchmarks.md`](docs/benchmarks.md)) and mention the before/after numbers in your PR description.
 
 ## Commit messages

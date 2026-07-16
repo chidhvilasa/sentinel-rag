@@ -45,6 +45,9 @@ env/
 .cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
 # Environment
 .env

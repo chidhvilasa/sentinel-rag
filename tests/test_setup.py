@@ -1,4 +1,5 @@
 """Environment smoke tests: are the core dependencies importable?"""
+
 import pytest
 
 
@@ -7,7 +8,7 @@ def test_sentinel_modules_importable():
 
 
 def test_rag_modules_importable():
-    from src.rag import RAGPipeline, OllamaLLM  # noqa: F401
+    from src.rag import OllamaLLM, RAGPipeline  # noqa: F401
 
 
 def test_chromadb_importable():

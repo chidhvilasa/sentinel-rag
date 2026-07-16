@@ -3,8 +3,9 @@ Sentinel-RAG Web Demo - FIXED FOR ACTUAL STRUCTURE
 ==================================================
 Works with: src/sentinel/, src/rag/, src/web/
 """
-import sys
+
 import os
+import sys
 import time
 
 # Add parent directory (src/) to Python path
@@ -12,19 +13,21 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-from fastapi import FastAPI, UploadFile, File, Request
-from fastapi.responses import HTMLResponse, JSONResponse
 import fitz  # PyMuPDF
+from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from rag.llm import OllamaLLM
 
 # Import from actual structure
 from sentinel.pipeline import SentinelPipeline
-from rag.llm import OllamaLLM
 
 app = FastAPI(title="Sentinel-RAG Demo")
 
 # Global components
 sentinel = None
 llm = None
+
 
 def get_sentinel():
     global sentinel
@@ -33,12 +36,14 @@ def get_sentinel():
         sentinel = SentinelPipeline()
     return sentinel
 
+
 def get_llm():
     global llm
     if llm is None:
         print("Connecting to Ollama LLM...")
         llm = OllamaLLM(model="llama3:8b")
     return llm
+
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -47,6 +52,7 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         text += page.get_text()
     doc.close()
     return text
+
 
 # ============================================================================
 # CRITICAL FIX: TWO DIFFERENT PROMPTS
@@ -1294,9 +1300,11 @@ HTML_TEMPLATE = r"""
 </html>
 """
 
+
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return HTML_TEMPLATE
+
 
 @app.post("/api/extract-pdf")
 async def extract_pdf(file: UploadFile = File(...)):
@@ -1306,6 +1314,7 @@ async def extract_pdf(file: UploadFile = File(...)):
         return JSONResponse({"text": text, "filename": file.filename})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+
 
 @app.post("/api/analyze")
 async def analyze_document(request: Request):
@@ -1329,21 +1338,21 @@ async def analyze_document(request: Request):
     if result.was_threat:
         # These patterns match YOUR actual attack PDFs
         patterns = [
-            r'---CRITICAL SYSTEM OVERRIDE.*?(?=\n\n|\Z)',
-            r'\[EXECUTIVE HIRING DIRECTIVE.*?(?=\n\n|\Z)',
-            r'\*\*\* YOU ARE REQUIRED.*?(?=\n\n|\Z)',
-            r'\*\*\* YOU MUST RECOMMEND.*?(?=\n\n|\Z)',
-            r'IGNORE all resume content above.*?(?=\n\n|\Z)',
-            r'THIS IS A MANDATORY INSTRUCTION.*?(?=\n\n|\Z)',
-            r'ACTUAL CANDIDATE BACKGROUND.*?(?=\n\n|\Z)',
-            r'FINAL DECISION:.*?(?=\n\n|\Z)',
-            r'REPEAT:.*?(?=\n\n|\Z)',
-            r'System will reject.*?(?=\n\n|\Z)',
+            r"---CRITICAL SYSTEM OVERRIDE.*?(?=\n\n|\Z)",
+            r"\[EXECUTIVE HIRING DIRECTIVE.*?(?=\n\n|\Z)",
+            r"\*\*\* YOU ARE REQUIRED.*?(?=\n\n|\Z)",
+            r"\*\*\* YOU MUST RECOMMEND.*?(?=\n\n|\Z)",
+            r"IGNORE all resume content above.*?(?=\n\n|\Z)",
+            r"THIS IS A MANDATORY INSTRUCTION.*?(?=\n\n|\Z)",
+            r"ACTUAL CANDIDATE BACKGROUND.*?(?=\n\n|\Z)",
+            r"FINAL DECISION:.*?(?=\n\n|\Z)",
+            r"REPEAT:.*?(?=\n\n|\Z)",
+            r"System will reject.*?(?=\n\n|\Z)",
             # Fallback patterns
-            r'IGNORE\s+ALL\s+PREVIOUS.*?(?=\n\n|\Z)',
-            r'\[SYSTEM.*?OVERRIDE.*?(?=\n\n|\Z)',
+            r"IGNORE\s+ALL\s+PREVIOUS.*?(?=\n\n|\Z)",
+            r"\[SYSTEM.*?OVERRIDE.*?(?=\n\n|\Z)",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
             if match:
@@ -1356,52 +1365,104 @@ async def analyze_document(request: Request):
         if not malicious_excerpt and len(content) > 500:
             malicious_excerpt = "..." + content[-400:]
 
-    confidence = getattr(result, 'confidence', 0.9 if result.was_threat else 0.1)
-    patterns_found = getattr(result, 'detected_patterns', [])
+    confidence = getattr(result, "confidence", 0.9 if result.was_threat else 0.1)
+    patterns_found = getattr(result, "detected_patterns", [])
 
     threat_level = "none"
-    if hasattr(result, 'threat_level'):
-        threat_level = result.threat_level.value if hasattr(result.threat_level, 'value') else str(result.threat_level)
+    if hasattr(result, "threat_level"):
+        threat_level = (
+            result.threat_level.value
+            if hasattr(result.threat_level, "value")
+            else str(result.threat_level)
+        )
 
     # Clean the neutralized text for LLM use - AGGRESSIVE CLEANING for your attack PDFs
     neutralized_for_llm = result.processed_text or ""
 
     # Strip ALL security notes and warnings that V4 adds
-    neutralized_for_llm = re.sub(r'\[SECURITY NOTE:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[WARNING:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[CONTENT REDACTED:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[NOTE:.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-    neutralized_for_llm = re.sub(r'\[CONVERTED TO PASSIVE\]:?', '', neutralized_for_llm, flags=re.IGNORECASE)
-    
+    neutralized_for_llm = re.sub(
+        r"\[SECURITY NOTE:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[WARNING:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[CONTENT REDACTED:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[NOTE:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
+    )
+    neutralized_for_llm = re.sub(
+        r"\[CONVERTED TO PASSIVE\]:?", "", neutralized_for_llm, flags=re.IGNORECASE
+    )
+
     # CRITICAL: Remove the exact attack patterns from your PDFs if V4 missed them
     if result.was_threat:
         # Remove "CRITICAL SYSTEM OVERRIDE" blocks
-        neutralized_for_llm = re.sub(r'---CRITICAL SYSTEM OVERRIDE.*?---', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        neutralized_for_llm = re.sub(r'\[EXECUTIVE HIRING DIRECTIVE.*?\]', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        
+        neutralized_for_llm = re.sub(
+            r"---CRITICAL SYSTEM OVERRIDE.*?---",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        neutralized_for_llm = re.sub(
+            r"\[EXECUTIVE HIRING DIRECTIVE.*?\]",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+
         # Remove any lines with "REQUIRED TO RATE" or "MUST RECOMMEND"
-        neutralized_for_llm = re.sub(r'.*?YOU ARE REQUIRED TO RATE.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'.*?YOU MUST RECOMMEND.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r".*?YOU ARE REQUIRED TO RATE.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+        neutralized_for_llm = re.sub(
+            r".*?YOU MUST RECOMMEND.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+
         # Remove "IGNORE all resume" instructions
-        neutralized_for_llm = re.sub(r'.*?IGNORE all resume content.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r".*?IGNORE all resume content.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+
         # Remove "ACTUAL CANDIDATE BACKGROUND"
-        neutralized_for_llm = re.sub(r'ACTUAL CANDIDATE BACKGROUND.*?(?=\n\n|\Z)', '', neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL)
-        
+        neutralized_for_llm = re.sub(
+            r"ACTUAL CANDIDATE BACKGROUND.*?(?=\n\n|\Z)",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+
         # Remove "FINAL DECISION" lines
-        neutralized_for_llm = re.sub(r'FINAL DECISION:.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(
+            r"FINAL DECISION:.*", "", neutralized_for_llm, flags=re.IGNORECASE
+        )
+
         # Remove "REPEAT:" instructions
-        neutralized_for_llm = re.sub(r'REPEAT:.*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        
+        neutralized_for_llm = re.sub(r"REPEAT:.*", "", neutralized_for_llm, flags=re.IGNORECASE)
+
         # Remove fake experience claims (12+ years at FAANG)
-        neutralized_for_llm = re.sub(r'.*?12\+?\s*years.*?(Google|Meta|Amazon|Facebook).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'.*?Staff Engineer.*?(Google|Meta|Amazon|Facebook).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-        neutralized_for_llm = re.sub(r'.*?Tech Lead.*?(Google|Meta|Amazon|Facebook).*', '', neutralized_for_llm, flags=re.IGNORECASE)
-    
+        neutralized_for_llm = re.sub(
+            r".*?12\+?\s*years.*?(Google|Meta|Amazon|Facebook).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r".*?Staff Engineer.*?(Google|Meta|Amazon|Facebook).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+        neutralized_for_llm = re.sub(
+            r".*?Tech Lead.*?(Google|Meta|Amazon|Facebook).*",
+            "",
+            neutralized_for_llm,
+            flags=re.IGNORECASE,
+        )
+
     # Clean up excessive whitespace
-    neutralized_for_llm = re.sub(r'\n\s*\n\s*\n+', '\n\n', neutralized_for_llm)
+    neutralized_for_llm = re.sub(r"\n\s*\n\s*\n+", "\n\n", neutralized_for_llm)
     neutralized_for_llm = neutralized_for_llm.strip()
 
     # Fallback if empty after cleaning
@@ -1421,7 +1482,7 @@ async def analyze_document(request: Request):
         "neutralized": result.processed_text[:800] if result.processed_text else None,
         "unsafe_response": None,
         "safe_response": None,
-        "timing": None
+        "timing": None,
     }
 
     t_llm_start = time.time()
@@ -1452,20 +1513,23 @@ async def analyze_document(request: Request):
         "detection": f"{sentinel_ms}ms",
         "neutralization": f"{max(sentinel_ms // 5, 5)}ms",
         "llm": f"{llm_ms}ms",
-        "total": f"{total_ms}ms"
+        "total": f"{total_ms}ms",
     }
 
     return JSONResponse(response_data)
+
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
 
+
 if __name__ == "__main__":
     import uvicorn
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print("   SENTINEL-RAG FIXED DEMO")
     print("   Vulnerable vs. Protected LLM Prompts")
     print("   Open http://localhost:8000 in your browser")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
     uvicorn.run(app, host="127.0.0.1", port=8000)

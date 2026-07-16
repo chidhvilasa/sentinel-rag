@@ -17,7 +17,26 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+# E501 (line-too-long) is not enforced: long lines are concentrated in the
+# web demo's embedded HTML/CSS/JS templates and in detector/neutralizer
+# regex pattern tables, neither of which benefit from being wrapped.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# scripts/, examples/, and run_sentinel_v5.py insert the repo root onto
+# sys.path before importing from src/, which necessarily puts those imports
+# below other top-of-file statements.
+"scripts/*.py" = ["E402"]
+"examples/*.py" = ["E402"]
+"run_sentinel_v5.py" = ["E402"]
+# The web apps add src/ to sys.path so their sibling `rag`/`sentinel`
+# packages resolve when run standalone via uvicorn.
+"src/web/*.py" = ["E402"]
 
 [tool.black]
 line-length = 100
 target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100

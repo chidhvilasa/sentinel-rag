@@ -1,18 +1,28 @@
-# Development, testing, and evaluation-only dependencies.
+# Development, testing, evaluation, and CI-only dependencies.
 # Install with: pip install -r requirements.txt -r requirements-dev.txt
+#
+# Pinned to the exact combination verified working with this repo's test
+# suite, lint config, and security tooling (see requirements.txt for the
+# pinning rationale).
 
 -r requirements.txt
 
 # Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
+pytest==9.1.1
+pytest-cov==7.1.0
 
-# Evaluation datasets (scripts/evaluate_deepset.py, scripts/analyze_deepset_failures.py)
-datasets>=2.16.0
+# Evaluation datasets (scripts/evaluate_deepset.py, scripts/analyze_deepset_failures.py,
+# scripts/finetune_model.py)
+datasets==4.5.0
 
 # Synthetic PDF generation (scripts/create_poisoned_pdf.py, scripts/create_review_demo_pdfs.py)
-reportlab>=4.0.0
+reportlab==4.4.9
 
-# Linting / formatting
-ruff>=0.4.0
-black>=24.0.0
+# Linting / formatting (see pyproject.toml for tool config)
+ruff==0.15.22
+black==26.5.1
+isort==8.0.1
+
+# Security scanning (used by .github/workflows/security.yml)
+bandit==1.9.4
+pip-audit==2.10.1

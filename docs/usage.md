@@ -84,6 +84,11 @@ Each evaluation/benchmark script writes its results to `results/<name>.json` (gi
 uvicorn src.web.new_app:app --reload
 ```
 
+`--reload` auto-restarts the server on code changes, so it's the recommended way to run it during development. Alternatively, run it directly (no auto-reload, but no extra command to remember):
+```bash
+python src/web/new_app.py
+```
+
 Open `http://localhost:8000`. Paste text or upload a PDF resume, then run the analysis to see: detection result, the neutralized text, and a side-by-side LLM response comparison (unprotected vs. Sentinel-protected). Full endpoint reference: [`api.md`](api.md).
 
 ## Experimental V5 CLI

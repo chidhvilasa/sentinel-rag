@@ -3,8 +3,9 @@ Sentinel-RAG Web Demo - FIXED FOR ACTUAL STRUCTURE
 ==================================================
 Works with: src/sentinel/, src/rag/, src/web/
 """
-import sys
+
 import os
+import sys
 import time
 
 # Add parent directory (src/) to Python path
@@ -12,19 +13,21 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
-from fastapi import FastAPI, UploadFile, File, Request
-from fastapi.responses import HTMLResponse, JSONResponse
 import fitz  # PyMuPDF
+from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from rag.llm import OllamaLLM
 
 # Import from actual structure
 from sentinel.pipeline import SentinelPipeline
-from rag.llm import OllamaLLM
 
 app = FastAPI(title="Sentinel-RAG Demo")
 
 # Global components
 sentinel = None
 llm = None
+
 
 def get_sentinel():
     global sentinel
@@ -33,12 +36,14 @@ def get_sentinel():
         sentinel = SentinelPipeline()
     return sentinel
 
+
 def get_llm():
     global llm
     if llm is None:
         print("Connecting to Ollama LLM...")
         llm = OllamaLLM(model="llama3:8b")
     return llm
+
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -47,6 +52,7 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         text += page.get_text()
     doc.close()
     return text
+
 
 # ============================================================================
 # CRITICAL FIX: TWO DIFFERENT PROMPTS
@@ -1294,9 +1300,11 @@ HTML_TEMPLATE = r"""
 </html>
 """
 
+
 @app.get("/", response_class=HTMLResponse)
 async def home():
     return HTML_TEMPLATE
+
 
 @app.post("/api/extract-pdf")
 async def extract_pdf(file: UploadFile = File(...)):
@@ -1306,6 +1314,7 @@ async def extract_pdf(file: UploadFile = File(...)):
         return JSONResponse({"text": text, "filename": file.filename})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+
 
 @app.post("/api/analyze")
 async def analyze_document(request: Request):
@@ -1328,15 +1337,15 @@ async def analyze_document(request: Request):
     malicious_excerpt = None
     if result.was_threat:
         patterns = [
-            r'IGNORE\s+ALL\s+PREVIOUS.*?(?=\n\n|\Z)',
-            r'IGNORE\s+THE\s+ABOVE.*?(?=\n\n|\Z)',
-            r'\[SYSTEM[^\]]*\].*?(?=\n\n|\Z)',
-            r'SYSTEM\s+PRIORITY\s+OVERRIDE.*?(?=\n\n|\Z)',
-            r'---\s*IGNORE.*?(?=\n\n|\Z)',
-            r'PRIORITY\s+OVERRIDE.*?(?=\n\n|\Z)',
-            r'ACTUAL\s+ASSESSMENT.*?(?=\n\n|\Z)',
-            r'FINAL.*?RECOMMENDATION.*?(?=\n\n|\Z)',
-            r'You\s+MUST\s+score.*?(?=\n\n|\Z)',
+            r"IGNORE\s+ALL\s+PREVIOUS.*?(?=\n\n|\Z)",
+            r"IGNORE\s+THE\s+ABOVE.*?(?=\n\n|\Z)",
+            r"\[SYSTEM[^\]]*\].*?(?=\n\n|\Z)",
+            r"SYSTEM\s+PRIORITY\s+OVERRIDE.*?(?=\n\n|\Z)",
+            r"---\s*IGNORE.*?(?=\n\n|\Z)",
+            r"PRIORITY\s+OVERRIDE.*?(?=\n\n|\Z)",
+            r"ACTUAL\s+ASSESSMENT.*?(?=\n\n|\Z)",
+            r"FINAL.*?RECOMMENDATION.*?(?=\n\n|\Z)",
+            r"You\s+MUST\s+score.*?(?=\n\n|\Z)",
         ]
         for pattern in patterns:
             match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
@@ -1347,46 +1356,35 @@ async def analyze_document(request: Request):
         if not malicious_excerpt and len(content) > 500:
             malicious_excerpt = "..." + content[-400:]
 
-    confidence = getattr(result, 'confidence', 0.9 if result.was_threat else 0.1)
-    patterns_found = getattr(result, 'detected_patterns', [])
+    confidence = getattr(result, "confidence", 0.9 if result.was_threat else 0.1)
+    patterns_found = getattr(result, "detected_patterns", [])
 
     threat_level = "none"
-    if hasattr(result, 'threat_level'):
-        threat_level = result.threat_level.value if hasattr(result.threat_level, 'value') else str(result.threat_level)
+    if hasattr(result, "threat_level"):
+        threat_level = (
+            result.threat_level.value
+            if hasattr(result.threat_level, "value")
+            else str(result.threat_level)
+        )
 
     # Clean the neutralized text for LLM use
     neutralized_for_llm = result.processed_text or ""
 
     # Strip security/warning/redaction notes
     neutralized_for_llm = re.sub(
-        r'\[SECURITY NOTE:.*?\]',
-        '',
-        neutralized_for_llm,
-        flags=re.IGNORECASE | re.DOTALL
+        r"\[SECURITY NOTE:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
     )
     neutralized_for_llm = re.sub(
-        r'\[WARNING:.*?\]',
-        '',
-        neutralized_for_llm,
-        flags=re.IGNORECASE | re.DOTALL
+        r"\[WARNING:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
     )
     neutralized_for_llm = re.sub(
-        r'\[CONTENT REDACTED:.*?\]',
-        '',
-        neutralized_for_llm,
-        flags=re.IGNORECASE | re.DOTALL
+        r"\[CONTENT REDACTED:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
     )
     neutralized_for_llm = re.sub(
-        r'\[NOTE:.*?\]',
-        '',
-        neutralized_for_llm,
-        flags=re.IGNORECASE | re.DOTALL
+        r"\[NOTE:.*?\]", "", neutralized_for_llm, flags=re.IGNORECASE | re.DOTALL
     )
     neutralized_for_llm = re.sub(
-        r'\[CONVERTED TO PASSIVE\]:?',
-        '',
-        neutralized_for_llm,
-        flags=re.IGNORECASE
+        r"\[CONVERTED TO PASSIVE\]:?", "", neutralized_for_llm, flags=re.IGNORECASE
     )
     neutralized_for_llm = neutralized_for_llm.strip()
 
@@ -1407,7 +1405,7 @@ async def analyze_document(request: Request):
         "neutralized": result.processed_text[:800] if result.processed_text else None,
         "unsafe_response": None,
         "safe_response": None,
-        "timing": None
+        "timing": None,
     }
 
     t_llm_start = time.time()
@@ -1438,20 +1436,23 @@ async def analyze_document(request: Request):
         "detection": f"{sentinel_ms}ms",
         "neutralization": f"{max(sentinel_ms // 5, 5)}ms",
         "llm": f"{llm_ms}ms",
-        "total": f"{total_ms}ms"
+        "total": f"{total_ms}ms",
     }
 
     return JSONResponse(response_data)
+
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
 
+
 if __name__ == "__main__":
     import uvicorn
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print("   SENTINEL-RAG FIXED DEMO")
     print("   Vulnerable vs. Protected LLM Prompts")
     print("   Open http://localhost:8000 in your browser")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
     uvicorn.run(app, host="127.0.0.1", port=8000)

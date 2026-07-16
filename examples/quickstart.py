@@ -5,6 +5,7 @@ without needing ChromaDB or a running LLM.
 Run from the repository root:
     python examples/quickstart.py
 """
+
 import sys
 from pathlib import Path
 

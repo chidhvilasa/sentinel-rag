@@ -1,4 +1,5 @@
 """Tests for SentinelPipeline: the combined detect+neutralize middleware."""
+
 import pytest
 
 from src.sentinel import SentinelPipeline
